@@ -116,11 +116,11 @@ row2_left, row2_mid, row2_right = st.columns([3, 1, 1])
 with row2_left:
     something_selected = st.session_state.first_click is not None
     status_cols = st.columns([3, 1])
-    with status_cols[0]:
-        if something_selected:
-            st.markdown("✅ **Vybrána první kartička** — najdi shodu na druhé!")
-        else:
-            st.markdown("Najdi jedinou aminokyselinu, která je na obou kartách!")
+    # with status_cols[0]:
+    #     if something_selected:
+    #         st.markdown("✅ **Vybrána první kartička** — najdi shodu na druhé!")
+    #     else:
+    #         st.markdown("Najdi jedinou aminokyselinu, která je na obou kartách!")
     with status_cols[1]:
         st.button("↩️ Zrušit", on_click=reset_selection,
                   use_container_width=True, disabled=not something_selected)
