@@ -4,16 +4,13 @@ from logic import create_card_pair, load_df, DIFFICULTIES
 # --- 1. PAGE CONFIG & STYLE ---
 st.set_page_config(page_title="DOBBLE aminových kyselin", layout="wide")
 
-st.markdown("""
-    <style>
-    /* Card background */
-    [data-testid="stVerticalBlock"] > div:has(div.stButton) {
-        background-color: #7495ad;
-        padding: 20px;
-        border-radius: 15px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+CARD_COLORS = {'A': '#4a7c9e', 'B': '#7a4a6e'}
+
+DIFF_LABELS = {
+    'easy':   'Student/ka',
+    'medium': 'Doktorand/ka',
+    'hard':   'Profesor/ka',
+}
 
 # --- 2. SESSION STATE ---
 if 'df' not in st.session_state:
@@ -26,45 +23,26 @@ if 'df' not in st.session_state:
 if 'round_data' not in st.session_state:
     st.session_state.round_data = create_card_pair(st.session_state.df, st.session_state.difficulty)
 
-winner_id, card1, card2 = st.session_state.round_data
+# --- 3. STYLES ---
+# Read mobile state once at top so styles are always in sync
+mobile = st.session_state.mobile
+btn_font    = "13px" if mobile else "22px"
+btn_padding = "2px 8px" if mobile else "8px 16px"
 
-DIFF_LABELS = {
-    'easy':   'Student/ka',
-    'medium': 'Doktorand/ka',
-    'hard':   'Profesor/ka',
-}
-
-CARD_COLORS = {'A': '#4a7c9e', 'B': '#7a4a6e'}
-
-# --- 3. INJECT STYLES based on mode ---
-def inject_styles():
-    if st.session_state.mobile:
-        btn_font = "13px"
-        btn_padding = "2px 8px"
-        card_padding = "8px"
-    else:
-        btn_font = "22px"
-        btn_padding = "8px 16px"
-        card_padding = "20px"
-
-    st.markdown(f"""
-        <style>
-        div.stButton > button p {{
-            font-size: {btn_font} !important;
-            font-weight: bold;
-        }}
-        div.stButton > button {{
-            padding: {btn_padding} !important;
-        }}
-        [data-testid="stVerticalBlock"] > div:has(div.stButton) {{
-            padding: {card_padding} !important;
-        }}
-        /* Remove gap between button rows */
-        div.stButton {{
-            margin-bottom: -8px !important;
-        }}
-        </style>
-        """, unsafe_allow_html=True)
+st.markdown(f"""
+    <style>
+    div.stButton > button p {{
+        font-size: {btn_font} !important;
+        font-weight: bold;
+    }}
+    div.stButton > button {{
+        padding: {btn_padding} !important;
+    }}
+    div.stButton {{
+        margin-bottom: -8px !important;
+    }}
+    </style>
+    """, unsafe_allow_html=True)
 
 # --- 4. HELPER FUNCTIONS ---
 def reset_game(new_diff):
@@ -75,7 +53,11 @@ def reset_game(new_diff):
 def reset_selection():
     st.session_state.first_click = None
 
+def toggle_mobile():
+    st.session_state.mobile = not st.session_state.mobile
+
 def handle_click(clicked_name, card_id):
+    winner_id = st.session_state.round_data[0]
     if st.session_state.first_click is None:
         st.session_state.first_click = {'name': clicked_name, 'card': card_id}
     else:
@@ -87,36 +69,32 @@ def handle_click(clicked_name, card_id):
                 st.session_state.round_data = create_card_pair(st.session_state.df, st.session_state.difficulty)
         st.session_state.first_click = None
 
-def render_card(card_items, side_id, column_obj):
+def render_card(card_items, side_id, col):
     color = CARD_COLORS[side_id]
-    with column_obj:
-        locked_side = st.session_state.first_click['card'] if st.session_state.first_click else None
-        # Colored card container
-        with st.container():
-            st.markdown(
-                f'<div style="background-color:{color};padding:6px 12px;border-radius:10px 10px 0 0;">'
-                f'<span style="color:white;font-weight:bold;font-size:14px;">Kartička {side_id}</span></div>',
-                unsafe_allow_html=True
+    locked_side = st.session_state.first_click['card'] if st.session_state.first_click else None
+    with col:
+        st.markdown(
+            f'<div style="background:{color};padding:8px 14px 14px 14px;border-radius:12px;">',
+            unsafe_allow_html=True
+        )
+        for i, item in enumerate(card_items):
+            desc = str(item['desc'])
+            if desc.lower().endswith(('.png', '.jpg', '.jpeg')):
+                st.image(desc, use_container_width=True)
+                btn_label = "SELECT STRUCTURE"
+            else:
+                btn_label = desc.replace('[', r'\[').replace(']', r'\]')
+            st.button(
+                btn_label,
+                key=f"btn_{side_id}_{i}_{item['name']}",
+                disabled=(locked_side == side_id),
+                use_container_width=True,
+                on_click=handle_click,
+                args=(item['name'], side_id)
             )
-            for i, item in enumerate(card_items):
-                desc = str(item['desc'])
-                if desc.lower().endswith(('.png', '.jpg', '.jpeg')):
-                    st.image(desc, use_container_width=True)
-                    btn_label = "SELECT STRUCTURE"
-                else:
-                    btn_label = desc.replace('[', r'\[').replace(']', r'\]')
-                st.button(
-                    btn_label,
-                    key=f"btn_{side_id}_{i}_{item['name']}",
-                    disabled=(locked_side == side_id),
-                    use_container_width=True,
-                    on_click=handle_click,
-                    args=(item['name'], side_id)
-                )
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # --- 5. UI ---
-inject_styles()
-
 st.title("🧬 DOBBLE aminových kyselin")
 
 # Row 1: difficulty buttons
@@ -149,17 +127,17 @@ with row2_left:
 with row2_mid:
     st.metric("BODY", st.session_state.score)
 with row2_right:
-    st.session_state.mobile = st.toggle("📱 Mobil", value=st.session_state.mobile)
+    # on_change fires before rerun so styles are in sync on the same render
+    st.toggle("📱 Mobil", value=st.session_state.mobile,
+              on_change=toggle_mobile, key="mobile_toggle")
 
 st.divider()
 
-# Pull fresh round data
 winner_id, card1, card2 = st.session_state.round_data
 
-if st.session_state.mobile:
-    # Stacked cards for mobile
+if mobile:
     render_card(card1, 'A', st.container())
-    st.markdown("<div style='margin-top:12px'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
     render_card(card2, 'B', st.container())
 else:
     col_left, col_right = st.columns(2)
