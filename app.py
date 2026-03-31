@@ -26,7 +26,7 @@ if 'round_data' not in st.session_state:
 # --- 3. STYLES ---
 # Read mobile state once at top so styles are always in sync
 mobile = st.session_state.mobile
-btn_font    = "13px" if mobile else "22px"
+btn_font    = "16px" if mobile else "22px"
 btn_padding = "2px 8px" if mobile else "8px 16px"
 
 st.markdown(f"""
