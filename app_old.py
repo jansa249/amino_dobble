@@ -4,12 +4,15 @@ from logic import create_card_pair, load_df, DIFFICULTIES
 # --- 1. PAGE CONFIG & STYLE ---
 st.set_page_config(page_title="DOBBLE aminových kyselin", layout="wide")
 
+# Custom CSS for Big, Readable Buttons (Great for a touchscreen booth!)
 st.markdown("""
     <style>
+    /* Make the button text large and bold */
     div.stButton > button p {
-        font-size: 22px !important;
+        font-size: 32px !important;
         font-weight: bold;
     }
+    /* Optional: Make the cards look like distinct sections */
     [data-testid="stVerticalBlock"] > div:has(div.stButton) {
         background-color: #7495ad;
         padding: 20px;
@@ -18,51 +21,83 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. SESSION STATE ---
+# --- 2. SESSION STATE (The Game's Memory) ---
 if 'df' not in st.session_state:
     st.session_state.df = load_df()
     st.session_state.score = 0
     st.session_state.difficulty = 'easy'
-    st.session_state.first_click = None
-    st.session_state.mobile = True
+    st.session_state.first_click = None # Stores {'name': 'Alanine', 'card': 'A'}
 
+# Only generate a new round if one doesn't exist
 if 'round_data' not in st.session_state:
     st.session_state.round_data = create_card_pair(st.session_state.df, st.session_state.difficulty)
 
+# Pull the current round data
 winner_id, card1, card2 = st.session_state.round_data
 
 # --- 3. HELPER FUNCTIONS ---
 def reset_game(new_diff):
+    """Changes difficulty and resets the board."""
     st.session_state.difficulty = new_diff
     st.session_state.round_data = create_card_pair(st.session_state.df, new_diff)
     st.session_state.first_click = None
 
-def reset_selection():
-    st.session_state.first_click = None
-
 def handle_click(clicked_name, card_id):
+    """Handles the two-click matching logic."""
     if st.session_state.first_click is None:
+        # First click: Save it and lock the card
         st.session_state.first_click = {'name': clicked_name, 'card': card_id}
     else:
         first = st.session_state.first_click
+        # Second click must be on the OTHER card
         if first['card'] != card_id:
             if clicked_name == first['name'] and clicked_name == winner_id:
                 st.session_state.score += 1
                 st.balloons()
+                # Correct! Move to next round
                 st.session_state.round_data = create_card_pair(st.session_state.df, st.session_state.difficulty)
+            else:
+                # st.toast(f"Not a match! ({first['name']} vs {clicked_name})", icon="❌")
+                pass
+        
+        # Reset selection regardless of outcome
         st.session_state.first_click = None
+
+# --- 4. THE USER INTERFACE ---
+st.title("🧬 DOBBLE aminových kyselin")
+st.write("Najdi **jedinou** aminokyselinu, která je na obou kartách!")
+
+# Difficulty Selection Row
+d_cols = st.columns(3)
+with d_cols[0]:
+    if st.button("🟢 Bc. student", use_container_width=True): reset_game('easy')
+with d_cols[1]:
+    if st.button("🟡 PhD student", use_container_width=True): reset_game('medium')
+with d_cols[2]:
+    if st.button("🔴 Profesor", use_container_width=True): reset_game('hard')
+
+st.divider()
+
+# Layout: Card A | Stats | Card B
+col_left, col_mid, col_right = st.columns([2, 1, 2])
+
+# Check if a card is currently "locked"
+locked_side = st.session_state.first_click['card'] if st.session_state.first_click else None
 
 def render_card(card_items, side_id, column_obj):
     with column_obj:
         st.header(f"Kartička {side_id}")
-        locked_side = st.session_state.first_click['card'] if st.session_state.first_click else None
         for i, item in enumerate(card_items):
             desc = str(item['desc'])
+            
+            # IMAGE SUPPORT: If the description looks like a file path, show the image
             if desc.lower().endswith(('.png', '.jpg', '.jpeg')):
                 st.image(desc, use_container_width=True)
                 btn_label = "SELECT STRUCTURE"
             else:
                 btn_label = desc.replace('[', r'\[').replace(']', r'\]')
+
+            # THE BUTTON: Unique key includes side, index, and name to prevent DuplicateKeyError
             st.button(
                 btn_label,
                 key=f"btn_{side_id}_{i}_{item['name']}",
@@ -72,55 +107,18 @@ def render_card(card_items, side_id, column_obj):
                 args=(item['name'], side_id)
             )
 
-def render_stats(column_obj):
-    """Renders score, status, and the reset-selection button."""
-    with column_obj:
-        st.metric("BODY", st.session_state.score)
+# Render Card A and Card B
+render_card(card1, 'A', col_left)
+render_card(card2, 'B', col_right)
 
-        if st.session_state.first_click:
-            selected_name = st.session_state.first_click['name']
-            selected_card = st.session_state.first_click['card']
-            st.info(f"✅ Vybráno: **{selected_name}** (Kartička {selected_card})")
-            st.button(
-                "↩️ Zrušit výběr",
-                on_click=reset_selection,
-                use_container_width=True,
-            )
-        else:
-            st.write("Vyber popis na jedné kartičce, pak ho najdi na druhé.")
-
-# --- 4. UI ---
-st.title("🧬 DOBBLE aminových kyselin")
-st.write("Najdi **jedinou** aminokyselinu, která je na obou kartách!")
-
-# Top row: difficulty + mobile toggle
-top_left, top_right = st.columns([3, 1])
-with top_left:
-    d_cols = st.columns(3)
-    with d_cols[0]:
-        if st.button("🟢 Bc. student", use_container_width=True): reset_game('easy')
-    with d_cols[1]:
-        if st.button("🟡 PhD student", use_container_width=True): reset_game('medium')
-    with d_cols[2]:
-        if st.button("🔴 Profesor", use_container_width=True): reset_game('hard')
-with top_right:
-    st.session_state.mobile = st.toggle("📱 Mobil", value=st.session_state.mobile)
-
-st.divider()
-
-# Pull fresh round data (may have changed via handle_click callback)
-winner_id, card1, card2 = st.session_state.round_data
-
-if st.session_state.mobile:
-    # --- MOBILE: vertical stack ---
-    render_card(card1, 'A', st)          # st itself acts as a full-width "column"
-    st.divider()
-    render_stats(st)
-    st.divider()
-    render_card(card2, 'B', st)
-else:
-    # --- DESKTOP: side-by-side ---
-    col_left, col_mid, col_right = st.columns([2, 1, 2])
-    render_card(card1, 'A', col_left)
-    render_stats(col_mid)
-    render_card(card2, 'B', col_right)
+# Center Column: Score and Status
+with col_mid:
+    st.metric("BODY", st.session_state.score)
+    if st.session_state.first_click:
+        # st.info(f"Selected **{st.session_state.first_click['name']}** on Card {st.session_state.first_click['card']}. Match it on the other side!")
+        pass
+    else:
+        st.write("Vyber popis")
+    
+    # if st.checkbox("Nápověda"):
+    #     st.write(f"**{winner_id}**")
