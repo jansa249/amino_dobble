@@ -34,20 +34,37 @@ DIFF_LABELS = {
     'hard':   'Profesor/ka',
 }
 
-# --- 3. INJECT FONT SIZE based on mode (runs every render) ---
-btn_font = "13px" if st.session_state.mobile else "22px"
-card_padding = "8px" if st.session_state.mobile else "20px"
-st.markdown(f"""
-    <style>
-    div.stButton > button p {{
-        font-size: {btn_font} !important;
-        font-weight: bold;
-    }}
-    [data-testid="stVerticalBlock"] > div:has(div.stButton) {{
-        padding: {card_padding} !important;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
+CARD_COLORS = {'A': '#4a7c9e', 'B': '#7a4a6e'}
+
+# --- 3. INJECT STYLES based on mode ---
+def inject_styles():
+    if st.session_state.mobile:
+        btn_font = "13px"
+        btn_padding = "2px 8px"
+        card_padding = "8px"
+    else:
+        btn_font = "22px"
+        btn_padding = "8px 16px"
+        card_padding = "20px"
+
+    st.markdown(f"""
+        <style>
+        div.stButton > button p {{
+            font-size: {btn_font} !important;
+            font-weight: bold;
+        }}
+        div.stButton > button {{
+            padding: {btn_padding} !important;
+        }}
+        [data-testid="stVerticalBlock"] > div:has(div.stButton) {{
+            padding: {card_padding} !important;
+        }}
+        /* Remove gap between button rows */
+        div.stButton {{
+            margin-bottom: -8px !important;
+        }}
+        </style>
+        """, unsafe_allow_html=True)
 
 # --- 4. HELPER FUNCTIONS ---
 def reset_game(new_diff):
@@ -71,26 +88,35 @@ def handle_click(clicked_name, card_id):
         st.session_state.first_click = None
 
 def render_card(card_items, side_id, column_obj):
+    color = CARD_COLORS[side_id]
     with column_obj:
-        st.header(f"Kartička {side_id}")
         locked_side = st.session_state.first_click['card'] if st.session_state.first_click else None
-        for i, item in enumerate(card_items):
-            desc = str(item['desc'])
-            if desc.lower().endswith(('.png', '.jpg', '.jpeg')):
-                st.image(desc, use_container_width=True)
-                btn_label = "SELECT STRUCTURE"
-            else:
-                btn_label = desc.replace('[', r'\[').replace(']', r'\]')
-            st.button(
-                btn_label,
-                key=f"btn_{side_id}_{i}_{item['name']}",
-                disabled=(locked_side == side_id),
-                use_container_width=True,
-                on_click=handle_click,
-                args=(item['name'], side_id)
+        # Colored card container
+        with st.container():
+            st.markdown(
+                f'<div style="background-color:{color};padding:6px 12px;border-radius:10px 10px 0 0;">'
+                f'<span style="color:white;font-weight:bold;font-size:14px;">Kartička {side_id}</span></div>',
+                unsafe_allow_html=True
             )
+            for i, item in enumerate(card_items):
+                desc = str(item['desc'])
+                if desc.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    st.image(desc, use_container_width=True)
+                    btn_label = "SELECT STRUCTURE"
+                else:
+                    btn_label = desc.replace('[', r'\[').replace(']', r'\]')
+                st.button(
+                    btn_label,
+                    key=f"btn_{side_id}_{i}_{item['name']}",
+                    disabled=(locked_side == side_id),
+                    use_container_width=True,
+                    on_click=handle_click,
+                    args=(item['name'], side_id)
+                )
 
 # --- 5. UI ---
+inject_styles()
+
 st.title("🧬 DOBBLE aminových kyselin")
 
 # Row 1: difficulty buttons
@@ -127,9 +153,15 @@ with row2_right:
 
 st.divider()
 
-# Pull fresh round data (may have changed via handle_click callback)
+# Pull fresh round data
 winner_id, card1, card2 = st.session_state.round_data
 
-col_left, col_right = st.columns(2)
-render_card(card1, 'A', col_left)
-render_card(card2, 'B', col_right)
+if st.session_state.mobile:
+    # Stacked cards for mobile
+    render_card(card1, 'A', st.container())
+    st.markdown("<div style='margin-top:12px'></div>", unsafe_allow_html=True)
+    render_card(card2, 'B', st.container())
+else:
+    col_left, col_right = st.columns(2)
+    render_card(card1, 'A', col_left)
+    render_card(card2, 'B', col_right)
