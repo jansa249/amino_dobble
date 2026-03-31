@@ -6,22 +6,10 @@ st.set_page_config(page_title="DOBBLE aminových kyselin", layout="wide")
 
 st.markdown("""
     <style>
-    /* Desktop: large buttons */
+    /* Game buttons (card items) */
     div.stButton > button p {
         font-size: 22px !important;
         font-weight: bold;
-    }
-
-    /* Mobile: smaller buttons inside .mobile-cards */
-    .mobile-cards div.stButton > button p {
-        font-size: 13px !important;
-        font-weight: bold;
-    }
-    .mobile-cards h2 {
-        font-size: 18px !important;
-    }
-    .mobile-cards [data-testid="stVerticalBlock"] > div:has(div.stButton) {
-        padding: 8px !important;
     }
 
     /* Card background */
@@ -110,7 +98,7 @@ for col, (diff_key, diff_label) in zip(d_cols, DIFF_LABELS.items()):
             key=f"diff_{diff_key}",
         )
 
-# Row 2: status + zrušit | score | mobile toggle
+# Row 2: status text + zrušit | score | mobile toggle
 row2_left, row2_mid, row2_right = st.columns([3, 1, 1])
 with row2_left:
     something_selected = st.session_state.first_click is not None
@@ -134,13 +122,9 @@ st.divider()
 winner_id, card1, card2 = st.session_state.round_data
 
 if st.session_state.mobile:
-    # Wrap in a div so .mobile-cards CSS applies to shrink fonts
-    st.markdown('<div class="mobile-cards">', unsafe_allow_html=True)
-    col_left, col_right = st.columns(2)
-    render_card(card1, 'A', col_left)
-    render_card(card2, 'B', col_right)
-    st.markdown('</div>', unsafe_allow_html=True)
+    _, col_left, col_right, _ = st.columns([0.5, 4, 4, 0.5])
 else:
     col_left, col_right = st.columns(2)
-    render_card(card1, 'A', col_left)
-    render_card(card2, 'B', col_right)
+
+render_card(card1, 'A', col_left)
+render_card(card2, 'B', col_right)
